@@ -31,7 +31,7 @@ class Trainer(BaseTrainer):
         self.window_metric = defaultdict(lambda: deque(maxlen=config.eval_window_size))
         self.best_window = -1.0
         self.best = -1.0
-        self.best_loss = float('inf')  # Best loss initialized to infinity
+        self.best_r1 = 0.0  # Best R@1 initialized to 0
 
     '''def _save_checkpoint(self, epoch, loss, save_best=False):
         """
@@ -62,6 +62,8 @@ class Trainer(BaseTrainer):
         total_loss = 0.0
         num_steps = len(self.train_data_loader)
         eval_steps = np.linspace(0, num_steps-1, self.evals_per_epoch+1, dtype=int)[1:]
+        best_r1 = 0.0  # Initialize best R@1 for this epoch
+        epoch_best_r1 = 0.0  # Initialize best R@1 for this epoch
         
         for batch_idx, data in enumerate(self.train_data_loader):
             if self.tokenizer is not None:
@@ -135,31 +137,29 @@ class Trainer(BaseTrainer):
                     val_res = self._valid_epoch_step(epoch, batch_idx, num_steps-1)
                     self.model.train()
 
+                    # Update best R@1 for this epoch
+                    if 'R1' in val_res and val_res['R1'] > epoch_best_r1:
+                        epoch_best_r1 = val_res['R1']
+                            
+                    # Save best checkpoint based on R@1
                     if val_res['R1-window'] > self.best_window:
                         self.best_window = val_res['R1-window']
-                        self._save_checkpoint(epoch, save_best=True)
-
+                                
                     if val_res['R1'] > self.best:
                         self.best = val_res['R1']
 
-                    msg = (" Current Best Window Average R@1 is {}".format(self.best_window), " Current Best R@1 is {}\n\n".format(self.best))
+                    msg = (" Current Best Window Average R@1 is {}".format(self.best_window), 
+                        " Current Best R@1 is {}\n\n".format(self.best))
                     gen_log(model_path=self.config.model_path, log_name='log_trntst', msg=msg)
 
-        res = {
-            'loss_train':  total_loss / num_steps
-        }
+            self._save_checkpoint(epoch, epoch_best_r1, save_best=True)
+                
+            res = {
+                'loss_train':  total_loss / num_steps
+            }
 
-        return res
-        '''# 에폭마다 모델 체크포인트 저장
-        avg_loss = total_loss / num_steps
-        self._save_checkpoint(epoch, avg_loss)
+            return res
 
-        # Save the best model if the current model's loss is the lowest so far
-        if avg_loss < self.best_loss:
-            self.best_loss = avg_loss
-            self._save_checkpoint(epoch, avg_loss, save_best=True)
-
-        return avg_loss'''
 
     
     def _valid_epoch_step(self, epoch, step, num_steps):

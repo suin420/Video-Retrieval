@@ -54,8 +54,8 @@ class BaseTrainer:
     def train(self):
         for epoch in range(self.start_epoch, self.num_epochs + 1):
             result = self._train_epoch(epoch)
-            if epoch % self.config.save_every == 0:
-                    self._save_checkpoint(epoch, save_best=False)
+            '''if epoch % self.config.save_every == 0:
+                    self._save_checkpoint(epoch, save_best=False)'''
 
     def validate(self):
         self._valid_epoch_step(0,0,0)
@@ -72,27 +72,23 @@ class BaseTrainer:
         device = torch.device('cuda:0' if use_gpu else 'cpu')
         return device
 
-    def _save_checkpoint(self, epoch, save_best=False):
+    def _save_checkpoint(self, epoch, r1, save_best=False):
         """
         Saving checkpoints
         :param epoch: current epoch number
-        :param save_best: if True, save checkpoint to 'model_best.pth'
+        :param save_best: if True, rename the saved checkpoint to 'model_best.pth'
+        :param r1: R@1 value to include in the checkpoint filename
         """
-
         state = {
             'epoch': epoch,
             'state_dict': self.model.state_dict(),
             'optimizer': self.optimizer.state_dict(),
+            'config': self.config,
         }
-
-        if save_best:
-            best_path = os.path.join(self.checkpoint_dir, 'model_best.pth')
-            torch.save(state, best_path)
-            print("Saving current best: model_best.pth ...")
-        else:
-            filename = os.path.join(self.checkpoint_dir, 'checkpoint-epoch{}.pth'.format(epoch))
-            torch.save(state, filename)
-            print("Saving checkpoint: {} ...".format(filename))
+        
+        filename = f'./ckpt/checkpoint_epoch_{epoch}_r1_{r1:.4f}.pth'
+        print(f"Saving checkpoint: {filename} ...")
+        torch.save(state, filename)
 
 
     def load_checkpoint(self, model_name):
